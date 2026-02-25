@@ -1,0 +1,12 @@
+<h3>Blood Requests</h3>
+
+<form action="/request" method="post">
+  Blood Needed: <input name="blood">
+  <button>Request</button>
+</form>
+
+<ul>
+{% for r in requests %}
+  <li>{{ r.blood }} - {{ r.status }}</li>
+{% endfor %}
+</ul>
