@@ -59,29 +59,10 @@ def register():
             }
         )
 
-        session["user"] = {
-            "fullname": fullname,
-            "email": email,
-            "blood_type": blood_type
-        }
-
-        flash("Registration successful!")
-        return redirect(url_for("confirm"))
-
-    return render_template("register.html")
-
-
-# ---------------- CONFIRM ----------------
-
-@app.route("/confirm")
-def confirm():
-
-    user = session.get("user")
-
-    if not user:
+        flash("Registration successful")
         return redirect(url_for("login"))
 
-    return render_template("confirmation.html", user=user)
+    return render_template("register.html")
 
 
 # ---------------- LOGIN ----------------
@@ -94,20 +75,30 @@ def login():
         email = request.form.get("email")
         password = request.form.get("password")
 
-        response = users_table.get_item(Key={"email": email})
-        user = response.get("Item")
+        # Prevent DynamoDB empty key error
+        if not email or not password:
+            flash("Email and Password are required")
+            return redirect(url_for("login"))
 
-        if user and user["password"] == password:
+        try:
+            response = users_table.get_item(Key={"email": email})
+            user = response.get("Item")
 
-            session["user"] = {
-                "fullname": user["fullname"],
-                "email": user["email"],
-                "blood_type": user["blood_type"]
-            }
+            if user and user["password"] == password:
 
-            return redirect(url_for("dashboard"))
+                session["user"] = {
+                    "fullname": user["fullname"],
+                    "email": user["email"],
+                    "blood_type": user["blood_type"]
+                }
 
-        flash("Invalid login credentials")
+                return redirect(url_for("dashboard"))
+
+            flash("Invalid login credentials")
+
+        except Exception as e:
+            print("Login error:", e)
+            flash("Login error occurred")
 
     return render_template("login.html")
 
@@ -132,7 +123,7 @@ def dashboard():
         requests = response.get("Items", [])
 
     except Exception as e:
-        print("Error loading requests:", e)
+        print("Dashboard error:", e)
         requests = []
 
     return render_template("dashboard.html", user=user, requests=requests)
@@ -160,25 +151,19 @@ def req():
 
         request_id = str(uuid.uuid4())
 
-        try:
+        requests_table.put_item(
+            Item={
+                "request_id": request_id,
+                "requester_email": user["email"],
+                "blood_type": blood_type,
+                "location": location,
+                "urgency": urgency,
+                "status": "pending",
+                "date": datetime.utcnow().isoformat()
+            }
+        )
 
-            requests_table.put_item(
-                Item={
-                    "request_id": request_id,
-                    "requester_email": user["email"],
-                    "blood_type": blood_type,
-                    "location": location,
-                    "urgency": urgency,
-                    "status": "pending",
-                    "date": datetime.utcnow().isoformat()
-                }
-            )
-
-            flash("Blood request submitted successfully!")
-
-        except Exception as e:
-            print("Error submitting request:", e)
-            flash("Error submitting request")
+        flash("Blood request submitted successfully!")
 
         return redirect(url_for("dashboard"))
 
@@ -224,8 +209,8 @@ def donate_blood(request_id):
 
         requests_table.update_item(
             Key={"request_id": request_id},
-            UpdateExpression="SET #st = :status",
-            ExpressionAttributeNames={"#st": "status"},
+            UpdateExpression="SET #s = :status",
+            ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={":status": "donated"}
         )
 
@@ -251,4 +236,4 @@ def logout():
 # ---------------- RUN SERVER ----------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)s
