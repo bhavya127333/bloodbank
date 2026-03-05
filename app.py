@@ -5,11 +5,16 @@ import uuid
 from boto3.dynamodb.conditions import Attr
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = "bloodbridge_secret"
 
-# DynamoDB setup
+# ---------------- DynamoDB Setup ----------------
+
 aws_region = "us-east-1"
-dynamodb = boto3.resource("dynamodb", region_name=aws_region)
+
+dynamodb = boto3.resource(
+    "dynamodb",
+    region_name=aws_region
+)
 
 users_table = dynamodb.Table("users")
 requests_table = dynamodb.Table("requests")
@@ -34,10 +39,14 @@ def register():
         password = request.form.get("password")
         blood_type = request.form.get("blood_type")
 
+        if not fullname or not email or not password or not blood_type:
+            flash("All fields are required")
+            return redirect(url_for("register"))
+
         response = users_table.get_item(Key={"email": email})
 
         if "Item" in response:
-            flash("Email already exists! Please login.")
+            flash("Email already exists. Please login.")
             return redirect(url_for("login"))
 
         users_table.put_item(
@@ -49,6 +58,7 @@ def register():
                 "created_at": datetime.utcnow().isoformat()
             }
         )
+
         session["user"] = {
             "fullname": fullname,
             "email": email,
@@ -61,11 +71,16 @@ def register():
     return render_template("register.html")
 
 
-# ---------------- CONFIRMATION ----------------
+# ---------------- CONFIRM ----------------
 
 @app.route("/confirm")
 def confirm():
+
     user = session.get("user")
+
+    if not user:
+        return redirect(url_for("login"))
+
     return render_template("confirmation.html", user=user)
 
 
@@ -107,16 +122,20 @@ def dashboard():
     if not user:
         return redirect(url_for("login"))
 
-    response = requests_table.scan(
-        FilterExpression=Attr("blood_type").eq(user["blood_type"]) &
-                         Attr("status").eq("pending")
-    )
+    try:
 
-    requests = response.get("Items", [])
+        response = requests_table.scan(
+            FilterExpression=Attr("blood_type").eq(user["blood_type"]) &
+                             Attr("status").eq("pending")
+        )
 
-    return render_template("dashboard.html",
-                           user=user,
-                           requests=requests)
+        requests = response.get("Items", [])
+
+    except Exception as e:
+        print("Error loading requests:", e)
+        requests = []
+
+    return render_template("dashboard.html", user=user, requests=requests)
 
 
 # ---------------- CREATE REQUEST ----------------
@@ -131,42 +150,56 @@ def req():
 
     if request.method == "POST":
 
-        request_id = str(uuid.uuid4())
-
         location = request.form.get("location")
         blood_type = request.form.get("blood_type")
         urgency = request.form.get("urgency")
 
-        requests_table.put_item(
-            Item={
-                "request_id": request_id,
-                "requester_email": user["email"],
-                "blood_type": blood_type,
-                "location": location,
-                "urgency": urgency,
-                "status": "pending",
-                "date": datetime.utcnow().isoformat()
-            }
-        )
+        if not location or not blood_type or not urgency:
+            flash("Please fill all fields")
+            return redirect(url_for("req"))
 
-        flash("Blood request submitted!")
+        request_id = str(uuid.uuid4())
+
+        try:
+
+            requests_table.put_item(
+                Item={
+                    "request_id": request_id,
+                    "requester_email": user["email"],
+                    "blood_type": blood_type,
+                    "location": location,
+                    "urgency": urgency,
+                    "status": "pending",
+                    "date": datetime.utcnow().isoformat()
+                }
+            )
+
+            flash("Blood request submitted successfully!")
+
+        except Exception as e:
+            print("Error submitting request:", e)
+            flash("Error submitting request")
 
         return redirect(url_for("dashboard"))
 
     return render_template("request.html", user=user)
 
 
-# ---------------- RESPOND TO REQUEST ----------------
+# ---------------- RESPOND ----------------
 
 @app.route("/respond/<request_id>")
 def respond(request_id):
 
     user = session.get("user")
 
+    if not user:
+        return redirect(url_for("login"))
+
     response = requests_table.get_item(Key={"request_id": request_id})
     request_data = response.get("Item")
 
     if not request_data:
+        flash("Request not found")
         return redirect(url_for("dashboard"))
 
     requester_email = request_data["requester_email"]
@@ -187,16 +220,32 @@ def respond(request_id):
 @app.route("/donate-blood/<request_id>", methods=["POST"])
 def donate_blood(request_id):
 
-    requests_table.update_item(
-        Key={"request_id": request_id},
-        UpdateExpression="SET #st = :new_status",
-        ExpressionAttributeNames={"#st": "status"},
-        ExpressionAttributeValues={":new_status": "donated"}
-    )
+    try:
 
-    flash("Donation confirmed!")
+        requests_table.update_item(
+            Key={"request_id": request_id},
+            UpdateExpression="SET #st = :status",
+            ExpressionAttributeNames={"#st": "status"},
+            ExpressionAttributeValues={":status": "donated"}
+        )
+
+        flash("Donation confirmed!")
+
+    except Exception as e:
+        print("Donation error:", e)
 
     return redirect(url_for("dashboard"))
+
+
+# ---------------- LOGOUT ----------------
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+    flash("Logged out successfully")
+
+    return redirect(url_for("login"))
 
 
 # ---------------- RUN SERVER ----------------
