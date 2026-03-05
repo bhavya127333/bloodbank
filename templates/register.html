@@ -1,6 +1,87 @@
-<form method="post">
-  Email: <input name="email"><br>
-  Password: <input name="password"><br>
-  Blood Type: <input name="blood"><br>
-  <button>Register</button>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Register - BloodBridge</title>
+<style>
+
+body{
+font-family: Arial;
+background:#f2f2f2;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+.container{
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.2);
+width:350px;
+}
+
+input,select{
+width:100%;
+padding:10px;
+margin:10px 0;
+border-radius:5px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:10px;
+background:#d62828;
+color:white;
+border:none;
+border-radius:5px;
+font-size:16px;
+cursor:pointer;
+}
+
+button:hover{
+background:#a4161a;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Register</h2>
+
+<form method="POST">
+
+<label>Full Name</label>
+<input type="text" name="fullname" required>
+
+<label>Email</label>
+<input type="email" name="email" required>
+
+<label>Password</label>
+<input type="password" name="password" required>
+
+<label>Blood Type</label>
+<select name="blood_type" required>
+<option value="">Select Blood Group</option>
+<option>A+</option>
+<option>A-</option>
+<option>B+</option>
+<option>B-</option>
+<option>O+</option>
+<option>O-</option>
+<option>AB+</option>
+<option>AB-</option>
+</select>
+
+<button type="submit">Register</button>
+
 </form>
+
+</div>
+
+</body>
+</html>
