@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
 # DynamoDB
-aws_region = "us-east-1"
+aws_region = "ap-south-1"
 
 dynamodb = boto3.resource("dynamodb", region_name=aws_region)
 
