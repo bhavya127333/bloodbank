@@ -9,7 +9,7 @@ app.secret_key = "bloodbridge_secret"
 
 # ---------------- DynamoDB Setup ----------------
 
-aws_region = "us-east-1"
+aws_region = "ap-south-1"
 
 dynamodb = boto3.resource(
     "dynamodb",
