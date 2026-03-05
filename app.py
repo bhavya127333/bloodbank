@@ -49,7 +49,6 @@ def register():
                 "created_at": datetime.utcnow().isoformat()
             }
         )
-
         session["user"] = {
             "fullname": fullname,
             "email": email,
